@@ -133,16 +133,17 @@ def ingest_to_sqlite(dataset_id: str, file_path: str, mapping: Dict[str, Any], p
         asset_seen[asset_id]=True
         cur.execute("INSERT INTO assets(dataset_id, asset_id, latitude, longitude, label) VALUES (?,?,?,?,?)",
                     (dataset_id, asset_id, lat, lon, label))
-
     def insert_fact(vals):
         nonlocal row_count
-        cur.execute("INSERT INTO facts(dataset_id, asset_id, latitude, longitude, year, scenario, theme, indicator, value, units, extra_json) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
-                    (dataset_id,)+vals[:10]+(vals[10],))
+        cur.execute(
+            "INSERT INTO facts(dataset_id, asset_id, latitude, longitude, year, scenario, theme, indicator, value, units, extra_json) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+            (dataset_id,) + vals[:10] + (vals[10],)
+        )
         row_count += 1
-            if (row_count % 5000) == 0:
-                progress_cb(row_count)
-            if cancel_cb():
-                raise RuntimeError('Ingest cancelled by user')
+        if (row_count % 5000) == 0:
+            progress_cb(row_count)
+        if cancel_cb():
+            raise RuntimeError("Ingest cancelled by user")
 
     if ext == ".csv":
         for chunk in pd.read_csv(file_path, chunksize=100000):
