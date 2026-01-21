@@ -28,6 +28,20 @@ def init_db():
       deleted_at TEXT
     )
     """)
+cur.execute("""
+CREATE TABLE IF NOT EXISTS ingest_jobs (
+  dataset_id TEXT PRIMARY KEY,
+  status TEXT,
+  stage TEXT,
+  total_rows INTEGER,
+  processed_rows INTEGER,
+  started_at TEXT,
+  updated_at TEXT,
+  error TEXT,
+  cancel_requested INTEGER DEFAULT 0
+)
+""")
+
     cur.execute("""
     CREATE TABLE IF NOT EXISTS facts (
       dataset_id TEXT,

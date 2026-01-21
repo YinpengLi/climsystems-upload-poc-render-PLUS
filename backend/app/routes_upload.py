@@ -83,5 +83,5 @@ def start_ingest(dataset_id: str, mapping: dict):
     cur.execute("UPDATE datasets SET mapping_json=? WHERE id=?", (json.dumps(mapping), dataset_id))
     con.commit(); con.close()
 
-    run_ingest(dataset_id, lambda: ingest_to_sqlite(dataset_id, file_path, mapping))
+    run_ingest(dataset_id, lambda progress, cancelled: ingest_to_sqlite(dataset_id, file_path, mapping, progress_cb=progress, cancel_cb=cancelled))
     return {"status": "PROCESSING", "dataset_id": dataset_id}

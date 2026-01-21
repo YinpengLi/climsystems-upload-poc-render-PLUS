@@ -55,13 +55,18 @@ def detect_columns(file_path: str) -> Dict[str, Any]:
     }
     return {"columns": cols, "guess": guess, "sample": sample[:5]}
 
-def ingest_to_sqlite(dataset_id: str, file_path: str, mapping: Dict[str, Any]) -> Dict[str, Any]:
+def ingest_to_sqlite(dataset_id: str, file_path: str, mapping: Dict[str, Any], progress_cb=None, cancel_cb=None) -> Dict[str, Any]:
     ext = os.path.splitext(file_path)[1].lower()
     con = connect()
     cur = con.cursor()
     cur.execute("DELETE FROM facts WHERE dataset_id=?", (dataset_id,))
     cur.execute("DELETE FROM assets WHERE dataset_id=?", (dataset_id,))
     con.commit()
+
+    if progress_cb is None:
+        progress_cb = lambda n: None
+    if cancel_cb is None:
+        cancel_cb = lambda : False
 
     lat_col = mapping.get("lat_col")
     lon_col = mapping.get("lon_col")
@@ -134,6 +139,10 @@ def ingest_to_sqlite(dataset_id: str, file_path: str, mapping: Dict[str, Any]) -
         cur.execute("INSERT INTO facts(dataset_id, asset_id, latitude, longitude, year, scenario, theme, indicator, value, units, extra_json) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
                     (dataset_id,)+vals[:10]+(vals[10],))
         row_count += 1
+            if (row_count % 5000) == 0:
+                progress_cb(row_count)
+            if cancel_cb():
+                raise RuntimeError('Ingest cancelled by user')
 
     if ext == ".csv":
         for chunk in pd.read_csv(file_path, chunksize=100000):

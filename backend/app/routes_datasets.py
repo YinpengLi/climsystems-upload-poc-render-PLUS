@@ -1,7 +1,9 @@
-import json, datetime, os
+import json, datetime, os, shutil
 from fastapi import APIRouter, HTTPException
 from .db import connect
 from .storage import dataset_dir
+from .jobs import job_get, request_cancel, run_ingest
+from .ingest import detect_columns, ingest_to_sqlite
 
 router = APIRouter()
 
@@ -35,6 +37,58 @@ def get_dataset(dataset_id: str):
     r["summary"] = json.loads(r["summary_json"]) if r.get("summary_json") else None
     r.pop("mapping_json", None); r.pop("summary_json", None)
     return r
+
+@router.get("/datasets/{dataset_id}/status")
+def dataset_status(dataset_id: str):
+    ds = get_dataset(dataset_id)
+    job = job_get(dataset_id)
+    return {"dataset": ds, "job": job}
+
+@router.post("/datasets/{dataset_id}/cancel")
+def cancel_ingest(dataset_id: str):
+    request_cancel(dataset_id)
+    return {"ok": True}
+
+@router.post("/datasets/{dataset_id}/retry")
+def retry_ingest(dataset_id: str):
+    ddir = dataset_dir(dataset_id)
+    meta_path = os.path.join(ddir, "meta.json")
+    if not os.path.exists(meta_path):
+        raise HTTPException(404, "Original file not found")
+    meta = json.loads(open(meta_path, "r", encoding="utf-8").read())
+    file_path = meta["original_path"]
+    ds = get_dataset(dataset_id)
+    mapping = ds.get("mapping") or {}
+    if not mapping:
+        # use guess as fallback
+        detected = detect_columns(file_path)
+        mapping = detected.get("guess") or {}
+        con = connect(); cur = con.cursor()
+        cur.execute("UPDATE datasets SET mapping_json=? WHERE id=?", (json.dumps(mapping), dataset_id))
+        con.commit(); con.close()
+    run_ingest(dataset_id, lambda progress, cancelled: ingest_to_sqlite(dataset_id, file_path, mapping, progress_cb=progress, cancel_cb=cancelled))
+    return {"ok": True, "status": "PROCESSING"}
+
+@router.get("/datasets/{dataset_id}/detect")
+def detect_for_dataset(dataset_id: str):
+    ddir = dataset_dir(dataset_id)
+    meta_path = os.path.join(ddir, "meta.json")
+    if not os.path.exists(meta_path):
+        raise HTTPException(404, "Original file not found")
+    meta = json.loads(open(meta_path, "r", encoding="utf-8").read())
+    return detect_columns(meta["original_path"])
+
+@router.delete("/datasets/{dataset_id}/hard-delete")
+def hard_delete(dataset_id: str):
+    # remove DB rows and files
+    con = connect(); cur = con.cursor()
+    cur.execute("DELETE FROM facts WHERE dataset_id=?", (dataset_id,))
+    cur.execute("DELETE FROM assets WHERE dataset_id=?", (dataset_id,))
+    cur.execute("DELETE FROM ingest_jobs WHERE dataset_id=?", (dataset_id,))
+    cur.execute("DELETE FROM datasets WHERE id=?", (dataset_id,))
+    con.commit(); con.close()
+    shutil.rmtree(dataset_dir(dataset_id), ignore_errors=True)
+    return {"ok": True}
 
 @router.post("/datasets/{dataset_id}/rename")
 def rename_dataset(dataset_id: str, payload: dict):

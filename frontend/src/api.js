@@ -111,3 +111,19 @@ export async function reportPreviewPortfolio(payload) {
   if(!res.ok) throw new Error(await res.text());
   return await res.blob();
 }
+
+export async function datasetStatus(id) {
+  return jsonFetch(`/datasets/${id}/status`);
+}
+export async function datasetDetect(id) {
+  return jsonFetch(`/datasets/${id}/detect`);
+}
+export async function cancelIngest(id) {
+  return jsonFetch(`/datasets/${id}/cancel`, { method:'POST' });
+}
+export async function retryIngest(id) {
+  return jsonFetch(`/datasets/${id}/retry`, { method:'POST' });
+}
+export async function hardDeleteDataset(id) {
+  return jsonFetch(`/datasets/${id}/hard-delete`, { method:'DELETE' });
+}
