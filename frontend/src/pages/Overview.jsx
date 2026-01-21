@@ -57,7 +57,7 @@ export default function Overview({ ctx }) {
           Download filtered CSV
         </a>
 
-        <Filters options={options} filters={filters} setFilters={setFilters} />
+        <Filters options={options} filters={filters} setFilters={setFilters} disabledReason={(!options || (!options.years?.length && !options.scenarios?.length && !options.themes?.length && !options.indicators?.length)) ? 'Dataset is still processing (or has no categorical fields). Filters will activate when READY.' : null} />
         <Assistant datasetId={activeId} />
       </div>
     </div>

@@ -25,7 +25,7 @@ function MultiSelect({ label, options, selected, onChange }) {
   )
 }
 
-export default function Filters({ options, filters, setFilters }) {
+export default function Filters({ options, filters, setFilters, disabledReason }) {
   return (
     <div>
       <MultiSelect label="Years" options={options.years||[]} selected={filters.years||[]} onChange={years=>setFilters({...filters, years})} />

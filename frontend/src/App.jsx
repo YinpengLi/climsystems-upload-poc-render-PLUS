@@ -21,6 +21,20 @@ export default function App() {
   }
 
   useEffect(() => { refreshDatasets().catch(console.error) }, [])
+
+// PROCESSING_POLL: keep refreshing dataset metadata while ingestion runs,
+// so filters become available as soon as status flips to READY.
+useEffect(() => {
+  if (!activeDataset || activeDataset.status !== 'PROCESSING') return
+  const t = setInterval(async () => {
+    try {
+      const ds = await listDatasets()
+      setDatasets(ds)
+    } catch(e) {}
+  }, 5000)
+  return () => clearInterval(t)
+}, [activeDataset?.id, activeDataset?.status])
+
   useEffect(() => {
     if (!activeId) return
     getDataset(activeId).then(setActiveDataset).catch(console.error)

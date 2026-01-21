@@ -1,10 +1,20 @@
 import React, { useMemo, useState } from 'react'
 import { MapContainer, TileLayer, CircleMarker, Popup, GeoJSON, useMap } from 'react-leaflet'
+import { useEffect } from 'react'
 
 const BASEMAPS = {
   light: { name: 'Light', url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', attrib: '©OpenStreetMap ©Carto' },
   street: { name: 'Street', url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', attrib: '©OpenStreetMap' },
   satellite: { name: 'Satellite', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', attrib: '©Esri' },
+}
+
+function FixMapResize() {
+  const map = useMap()
+  useEffect(() => {
+    const t = setTimeout(() => { try { map.invalidateSize() } catch(e) {} }, 200)
+    return () => clearTimeout(t)
+  }, [map])
+  return null
 }
 
 function FlyTo({ center, zoom }) {
@@ -73,7 +83,8 @@ export default function MapView({ assets, height=520, onSelectAsset }) {
           </div>
         </div>
       </div>
-      <MapContainer center={center} zoom={5} style={{ height, width:'100%' }}>
+      <MapContainer center={center} zoom={5} style={{ height: height, minHeight: 520, width:'100%' }}>
+        <FixMapResize />
         <FlyTo center={flyCenter} zoom={10} />
         <TileLayer url={BASEMAPS[basemap].url} attribution={BASEMAPS[basemap].attrib} />
         {geojson ? <GeoJSON data={geojson} /> : null}

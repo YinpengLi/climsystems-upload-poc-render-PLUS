@@ -69,7 +69,7 @@ export default function Reports({ ctx }) {
 
       <div style={{ border:'1px solid #eee', borderRadius: 12, padding: 12 }}>
         <div style={{ fontWeight: 800, marginBottom: 8 }}>Global Filters</div>
-        <Filters options={options} filters={filters} setFilters={setFilters} />
+        <Filters options={options} filters={filters} setFilters={setFilters} disabledReason={(!options || (!options.years?.length && !options.scenarios?.length && !options.themes?.length && !options.indicators?.length)) ? 'Dataset is still processing (or has no categorical fields). Filters will activate when READY.' : null} />
         <div style={{ fontSize: 12, color:'#666' }}>You can tune year/scenario/theme/indicator then regenerate.</div>
       </div>
     </div>
