@@ -14,60 +14,58 @@ def connect():
 def init_db():
     con = connect()
     cur = con.cursor()
+
     cur.execute("""
     CREATE TABLE IF NOT EXISTS datasets (
-      id TEXT PRIMARY KEY,
-      name TEXT,
-      status TEXT,
-      source_filename TEXT,
-      size_bytes INTEGER,
-      created_at TEXT,
-      mapping_json TEXT,
-      summary_json TEXT,
-      error TEXT,
-      deleted_at TEXT
+        id TEXT PRIMARY KEY,
+        name TEXT,
+        status TEXT,
+        summary_json TEXT,
+        mapping_json TEXT,
+        error TEXT,
+        created_at TEXT
     )
     """)
-cur.execute("""
-CREATE TABLE IF NOT EXISTS ingest_jobs (
-  dataset_id TEXT PRIMARY KEY,
-  status TEXT,
-  stage TEXT,
-  total_rows INTEGER,
-  processed_rows INTEGER,
-  started_at TEXT,
-  updated_at TEXT,
-  error TEXT,
-  cancel_requested INTEGER DEFAULT 0
-)
-""")
+
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS assets (
+        dataset_id TEXT,
+        asset_id TEXT,
+        label TEXT,
+        latitude REAL,
+        longitude REAL
+    )
+    """)
 
     cur.execute("""
     CREATE TABLE IF NOT EXISTS facts (
-      dataset_id TEXT,
-      asset_id TEXT,
-      latitude REAL,
-      longitude REAL,
-      year INTEGER,
-      scenario TEXT,
-      theme TEXT,
-      indicator TEXT,
-      value REAL,
-      units TEXT,
-      extra_json TEXT
+        dataset_id TEXT,
+        asset_id TEXT,
+        latitude REAL,
+        longitude REAL,
+        year INTEGER,
+        scenario TEXT,
+        theme TEXT,
+        indicator TEXT,
+        value REAL,
+        units TEXT
     )
     """)
+
     cur.execute("""
-    CREATE TABLE IF NOT EXISTS assets (
-      dataset_id TEXT,
-      asset_id TEXT,
-      latitude REAL,
-      longitude REAL,
-      label TEXT
+    CREATE TABLE IF NOT EXISTS ingest_jobs (
+        dataset_id TEXT PRIMARY KEY,
+        status TEXT,
+        stage TEXT,
+        total_rows INTEGER,
+        processed_rows INTEGER,
+        started_at TEXT,
+        updated_at TEXT,
+        error TEXT,
+        cancel_requested INTEGER DEFAULT 0
     )
     """)
-    cur.execute("CREATE INDEX IF NOT EXISTS idx_facts_ds_asset ON facts(dataset_id, asset_id)")
-    cur.execute("CREATE INDEX IF NOT EXISTS idx_facts_ds_dim ON facts(dataset_id, theme, year, scenario, indicator)")
-    cur.execute("CREATE INDEX IF NOT EXISTS idx_assets_ds ON assets(dataset_id)")
+
     con.commit()
     con.close()
+
