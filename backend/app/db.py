@@ -1,10 +1,13 @@
-import os
-import sqlite3
-from .config import DATA_DIR
+import os, sqlite3
 
-def db_path() -> str:
-    os.makedirs(DATA_DIR, exist_ok=True)
-    return os.path.join(DATA_DIR, "app.sqlite")
+def data_dir():
+    # Prefer Render persistent disk at /data if present
+    return os.environ.get("DATA_DIR") or ("/data" if os.path.exists("/data") else os.path.join(os.getcwd(), "data"))
+
+def db_path():
+    d = data_dir()
+    os.makedirs(d, exist_ok=True)
+    return os.path.join(d, "app.sqlite")
 
 def connect():
     con = sqlite3.connect(db_path(), check_same_thread=False)
@@ -57,9 +60,8 @@ def init_db():
         dataset_id TEXT PRIMARY KEY,
         status TEXT,
         stage TEXT,
-        total_rows INTEGER,
         processed_rows INTEGER,
-        started_at TEXT,
+        total_rows INTEGER,
         updated_at TEXT,
         error TEXT,
         cancel_requested INTEGER DEFAULT 0
@@ -68,4 +70,3 @@ def init_db():
 
     con.commit()
     con.close()
-

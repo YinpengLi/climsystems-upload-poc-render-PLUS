@@ -1,17 +1,17 @@
 import os
-from .config import DATA_DIR
+from .db import data_dir
 
-def dataset_dir(dataset_id: str) -> str:
-    d = os.path.join(DATA_DIR, "datasets", dataset_id)
+def datasets_root():
+    d = os.path.join(data_dir(), "datasets")
     os.makedirs(d, exist_ok=True)
     return d
 
-def uploads_dir() -> str:
-    d = os.path.join(DATA_DIR, "uploads")
+def dataset_dir(dataset_id: str):
+    d = os.path.join(datasets_root(), dataset_id)
     os.makedirs(d, exist_ok=True)
     return d
 
-def chunks_dir(upload_id: str) -> str:
-    d = os.path.join(uploads_dir(), upload_id)
+def chunks_dir(upload_id: str):
+    d = os.path.join(data_dir(), "uploads", upload_id)
     os.makedirs(d, exist_ok=True)
     return d

@@ -1,91 +1,33 @@
-import React, { useEffect, useMemo, useState } from 'react'
-import { NavLink, Route, Routes } from 'react-router-dom'
+import React, { useEffect, useState } from 'react'
+import { listDatasets } from './api.js'
 import DataManagement from './pages/DataManagement.jsx'
-import Overview from './pages/Overview.jsx'
-import AssetDetail from './pages/AssetDetail.jsx'
-import Reports from './pages/Reports.jsx'
-import { listDatasets, getDataset, filterOptions } from './api.js'
+import MapView from './pages/MapView.jsx'
 
 export default function App() {
   const [datasets, setDatasets] = useState([])
   const [activeId, setActiveId] = useState(null)
-  const [activeDataset, setActiveDataset] = useState(null)
-  const [filters, setFilters] = useState({ years: [], scenarios: [], themes: [], indicators: [], assets: [] })
-  const [selectedAssetId, setSelectedAssetId] = useState(null)
-  const [options, setOptions] = useState({ years: [], scenarios: [], themes: [], indicators: [] })
+  const [tab, setTab] = useState('data')
 
-  async function refreshDatasets() {
+  async function refresh() {
     const ds = await listDatasets()
     setDatasets(ds)
     if (!activeId && ds.length) setActiveId(ds[0].id)
   }
 
-  useEffect(() => { refreshDatasets().catch(console.error) }, [])
+  useEffect(()=>{ refresh() }, [])
 
-// PROCESSING_POLL: keep refreshing dataset metadata while ingestion runs,
-// so filters become available as soon as status flips to READY.
-useEffect(() => {
-  if (!activeDataset || activeDataset.status !== 'PROCESSING') return
-  const t = setInterval(async () => {
-    try {
-      const ds = await listDatasets()
-      setDatasets(ds)
-    } catch(e) {}
-  }, 5000)
-  return () => clearInterval(t)
-}, [activeDataset?.id, activeDataset?.status])
-
-  useEffect(() => {
-    if (!activeId) return
-    getDataset(activeId).then(setActiveDataset).catch(console.error)
-    filterOptions(activeId).then(setOptions).catch(()=>setOptions({years:[],scenarios:[],themes:[],indicators:[]}))
-  }, [activeId])
-
-  const ctx = useMemo(() => ({
-    datasets, refreshDatasets,
-    activeId, setActiveId,
-    activeDataset,
-    filters, setFilters,
-    options,
-    selectedAssetId, setSelectedAssetId
-  }), [datasets, activeId, activeDataset, filters, options, selectedAssetId])
+  const ctx = { datasets, refreshDatasets: refresh, activeId, setActiveId }
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr', minHeight: '100vh', fontFamily: 'system-ui, Arial' }}>
-      <aside style={{ borderRight: '1px solid #eee', padding: 14 }}>
-        <div style={{ fontWeight: 800, marginBottom: 10 }}>ClimSystems POC</div>
+    <div style={{ fontFamily:'system-ui, -apple-system, Segoe UI, Roboto, Arial', padding: 14 }}>
+      <div style={{ display:'flex', gap: 10, alignItems:'center', marginBottom: 12 }}>
+        <div style={{ fontWeight: 900 }}>ClimSystems Upload POC</div>
+        <button onClick={()=>setTab('data')} style={{ padding:'6px 10px', borderRadius: 10, border:'1px solid #ddd', background: tab==='data'?'#111':'#fff', color: tab==='data'?'#fff':'#111' }}>Data Management</button>
+        <button onClick={()=>setTab('map')} style={{ padding:'6px 10px', borderRadius: 10, border:'1px solid #ddd', background: tab==='map'?'#111':'#fff', color: tab==='map'?'#fff':'#111' }}>Map View</button>
+        <button onClick={refresh} style={{ marginLeft:'auto', padding:'6px 10px', borderRadius: 10, border:'1px solid #ddd' }}>Refresh</button>
+      </div>
 
-        <div style={{ fontSize: 12, color: '#666', marginBottom: 8 }}>Dataset</div>
-        <select value={activeId || ''} onChange={e=>setActiveId(e.target.value)} style={{ width:'100%', padding: 8 }}>
-          {datasets.map(d => <option key={d.id} value={d.id}>{d.name} ({d.status})</option>)}
-        </select>
-
-        <nav style={{ marginTop: 16, display: 'grid', gap: 6 }}>
-          <NavLink to="/" end style={({isActive})=>({ padding: 8, borderRadius: 8, textDecoration:'none', color:'#111', background: isActive ? '#f0f0f0':'transparent'})}>Data Management</NavLink>
-          <NavLink to="/overview" style={({isActive})=>({ padding: 8, borderRadius: 8, textDecoration:'none', color:'#111', background: isActive ? '#f0f0f0':'transparent'})}>Overview</NavLink>
-          <NavLink to="/asset" style={({isActive})=>({ padding: 8, borderRadius: 8, textDecoration:'none', color:'#111', background: isActive ? '#f0f0f0':'transparent'})}>Asset Detail</NavLink>
-          <NavLink to="/reports" style={({isActive})=>({ padding: 8, borderRadius: 8, textDecoration:'none', color:'#111', background: isActive ? '#f0f0f0':'transparent'})}>Reports</NavLink>
-        </nav>
-      </aside>
-
-      <main style={{ display:'grid', gridTemplateRows:'56px 1fr' }}>
-        <header style={{ borderBottom:'1px solid #eee', padding:'12px 16px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-          <div style={{ fontWeight: 700 }}>
-            {activeDataset ? `${activeDataset.name}` : 'No dataset selected'}
-            {activeDataset?.status ? <span style={{ marginLeft: 10, fontSize: 12, color:'#666' }}>{activeDataset.status}</span> : null}
-          </div>
-          <div style={{ fontSize: 12, color:'#666' }}>
-            Theme semantics: <b>Score</b>=hazard score, <b>Data</b>=raw, <b>Change</b>=delta (all visible)
-          </div>
-        </header>
-
-        <Routes>
-          <Route path="/" element={<DataManagement ctx={ctx} />} />
-          <Route path="/overview" element={<Overview ctx={ctx} />} />
-          <Route path="/asset" element={<AssetDetail ctx={ctx} />} />
-          <Route path="/reports" element={<Reports ctx={ctx} />} />
-        </Routes>
-      </main>
+      {tab === 'data' ? <DataManagement ctx={ctx} /> : <MapView ctx={ctx} />}
     </div>
   )
 }

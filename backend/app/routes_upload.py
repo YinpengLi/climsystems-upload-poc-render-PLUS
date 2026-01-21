@@ -1,9 +1,10 @@
 import os, json, uuid, datetime, shutil
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException
+from fastapi.responses import FileResponse
 from .storage import chunks_dir, dataset_dir
 from .db import connect
-from .ingest import detect_columns, ingest_to_sqlite
-from .jobs import run_ingest
+from .ingest import detect_columns
+from .jobs import job_upsert
 
 router = APIRouter()
 
@@ -14,16 +15,12 @@ def _now():
 def upload_init(filename: str = Form(...), size_bytes: int = Form(0)):
     upload_id = str(uuid.uuid4())
     dataset_id = str(uuid.uuid4())
-    os.makedirs(chunks_dir(upload_id), exist_ok=True)
-    os.makedirs(dataset_dir(dataset_id), exist_ok=True)
-
     con = connect(); cur = con.cursor()
     cur.execute(
-        "INSERT INTO datasets(id, name, status, source_filename, size_bytes, created_at, mapping_json, summary_json, error, deleted_at) VALUES (?,?,?,?,?,?,?,?,?,NULL)",
-        (dataset_id, filename, "UPLOADING", filename, size_bytes, _now(), None, None, None)
+        "INSERT INTO datasets(id,name,status,summary_json,mapping_json,error,created_at) VALUES (?,?,?,?,?,?,?)",
+        (dataset_id, filename, "UPLOADING", None, None, None, _now())
     )
     con.commit(); con.close()
-
     return {"upload_id": upload_id, "dataset_id": dataset_id}
 
 @router.post("/upload/chunk")
@@ -31,10 +28,10 @@ def upload_chunk(
     upload_id: str = Form(...),
     dataset_id: str = Form(...),
     part_number: int = Form(...),
-    chunk: UploadFile = File(...)
+    chunk: UploadFile = File(...),
 ):
     d = chunks_dir(upload_id)
-    part_path = os.path.join(d, f"part_{part_number:06d}.bin")
+    part_path = os.path.join(d, f"part_{part_number:06d}")
     with open(part_path, "wb") as f:
         shutil.copyfileobj(chunk.file, f)
     return {"ok": True}
@@ -49,9 +46,11 @@ def upload_finalize(
     parts = sorted([p for p in os.listdir(d) if p.startswith("part_")])
     if not parts:
         raise HTTPException(400, "No parts uploaded")
+
     ext = os.path.splitext(filename)[1].lower()
     out_dir = dataset_dir(dataset_id)
     original_path = os.path.join(out_dir, f"original{ext or ''}")
+
     with open(original_path, "wb") as out:
         for p in parts:
             with open(os.path.join(d, p), "rb") as f:
@@ -67,21 +66,19 @@ def upload_finalize(
     cur.execute("UPDATE datasets SET status=? WHERE id=?", ("UPLOADED", dataset_id))
     con.commit(); con.close()
 
+    job_upsert(dataset_id, status="UPLOADED", stage="uploaded", processed_rows=0, total_rows=None, updated_at=_now(), error=None, cancel_requested=0)
+
     shutil.rmtree(d, ignore_errors=True)
     return {"status": "UPLOADED", "dataset_id": dataset_id, "detected": detected}
 
-@router.post("/datasets/{dataset_id}/ingest")
-def start_ingest(dataset_id: str, mapping: dict):
+@router.get("/datasets/{dataset_id}/original")
+def download_original(dataset_id: str):
     out_dir = dataset_dir(dataset_id)
     meta_path = os.path.join(out_dir, "meta.json")
     if not os.path.exists(meta_path):
         raise HTTPException(404, "Original file not found")
     meta = json.loads(open(meta_path, "r", encoding="utf-8").read())
-    file_path = meta["original_path"]
-
-    con = connect(); cur = con.cursor()
-    cur.execute("UPDATE datasets SET mapping_json=? WHERE id=?", (json.dumps(mapping), dataset_id))
-    con.commit(); con.close()
-
-    run_ingest(dataset_id, lambda progress, cancelled: ingest_to_sqlite(dataset_id, file_path, mapping, progress_cb=progress, cancel_cb=cancelled))
-    return {"status": "PROCESSING", "dataset_id": dataset_id}
+    path = meta["original_path"]
+    if not os.path.exists(path):
+        raise HTTPException(404, "Original file missing on disk")
+    return FileResponse(path, filename=meta.get("original_name") or os.path.basename(path))

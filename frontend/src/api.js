@@ -12,118 +12,46 @@ async function jsonFetch(path, opts = {}) {
 }
 
 export async function listDatasets() { return jsonFetch('/datasets'); }
-export async function getDataset(id) { return jsonFetch(`/datasets/${id}`); }
 
 export async function uploadInit(filename, sizeBytes) {
   const fd = new FormData();
   fd.append('filename', filename);
   fd.append('size_bytes', String(sizeBytes || 0));
-  return jsonFetch('/upload/init', { method: 'POST', body: fd });
+  return jsonFetch('/upload/init', { method:'POST', body: fd });
 }
-export async function uploadChunk(upload_id, dataset_id, part_number, blob, filename) {
+
+export async function uploadChunk(upload_id, dataset_id, part_number, blob) {
   const fd = new FormData();
   fd.append('upload_id', upload_id);
   fd.append('dataset_id', dataset_id);
   fd.append('part_number', String(part_number));
-  fd.append('chunk', blob, filename);
-  return jsonFetch('/upload/chunk', { method: 'POST', body: fd });
+  fd.append('chunk', blob, 'chunk.bin');
+  return jsonFetch('/upload/chunk', { method:'POST', body: fd });
 }
+
 export async function uploadFinalize(upload_id, dataset_id, filename) {
   const fd = new FormData();
   fd.append('upload_id', upload_id);
   fd.append('dataset_id', dataset_id);
   fd.append('filename', filename);
-  return jsonFetch('/upload/finalize', { method: 'POST', body: fd });
+  return jsonFetch('/upload/finalize', { method:'POST', body: fd });
 }
+
 export async function startIngest(dataset_id, mapping) {
   return jsonFetch(`/datasets/${dataset_id}/ingest`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(mapping),
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(mapping || {})
   });
 }
 
-export async function filterOptions(dataset_id) {
-  return jsonFetch(`/datasets/${dataset_id}/filter-options`);
-}
-export async function listAssets(dataset_id, q) {
-  const qs = q ? `?q=${encodeURIComponent(q)}` : '';
-  return jsonFetch(`/datasets/${dataset_id}/assets${qs}`);
-}
-export async function topAssets(dataset_id, params) {
-  const url = new URL(API_BASE + `/datasets/${dataset_id}/portfolio/top-assets`);
-  Object.entries(params || {}).forEach(([k,v])=>{
-    if (v==null) return;
-    if (Array.isArray(v)) v.forEach(x=>url.searchParams.append(k, x));
-    else url.searchParams.set(k, v);
-  });
-  const res = await fetch(url.toString());
-  if(!res.ok) throw new Error(await res.text());
-  return res.json();
-}
-export async function facts(dataset_id, params) {
-  const url = new URL(API_BASE + `/datasets/${dataset_id}/facts`);
-  Object.entries(params || {}).forEach(([k,v])=>{
-    if (v==null) return;
-    if (Array.isArray(v)) v.forEach(x=>url.searchParams.append(k, x));
-    else url.searchParams.set(k, v);
-  });
-  const res = await fetch(url.toString());
-  if(!res.ok) throw new Error(await res.text());
-  return res.json();
+export async function ingestStep(dataset_id, chunk_rows=5000) {
+  return jsonFetch(`/datasets/${dataset_id}/ingest-step?chunk_rows=${chunk_rows}`, { method:'POST' });
 }
 
-export async function reportPreview(payload) {
-  const res = await fetch(API_BASE + '/reports/preview', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
-  if(!res.ok) throw new Error(await res.text());
-  return await res.blob();
-}
-
-
-export async function renameDataset(id, name) {
-  return jsonFetch(`/datasets/${id}/rename`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ name }) })
-}
-export function originalDownloadUrl(id) {
-  return API_BASE + `/datasets/${id}/original`;
-}
-export function exportCsvUrl(dataset_id, params) {
-  const url = new URL(API_BASE + `/datasets/${dataset_id}/export-csv`);
-  Object.entries(params || {}).forEach(([k,v])=>{
-    if (v==null) return;
-    if (Array.isArray(v)) v.forEach(x=>url.searchParams.append(k, x));
-    else url.searchParams.set(k, v);
-  });
-  return url.toString();
-}
-export async function aiAsk(dataset_id, question) {
-  return jsonFetch('/ai/ask', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ dataset_id, question }) });
-}
-export async function reportPreviewPortfolio(payload) {
-  const res = await fetch(API_BASE + '/reports/preview-portfolio', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
-  if(!res.ok) throw new Error(await res.text());
-  return await res.blob();
-}
-
-export async function datasetStatus(id) {
-  return jsonFetch(`/datasets/${id}/status`);
-}
-export async function datasetDetect(id) {
-  return jsonFetch(`/datasets/${id}/detect`);
-}
-export async function cancelIngest(id) {
-  return jsonFetch(`/datasets/${id}/cancel`, { method:'POST' });
-}
-export async function retryIngest(id) {
-  return jsonFetch(`/datasets/${id}/retry`, { method:'POST' });
-}
-export async function hardDeleteDataset(id) {
-  return jsonFetch(`/datasets/${id}/hard-delete`, { method:'DELETE' });
-}
+export async function datasetStatus(dataset_id) { return jsonFetch(`/datasets/${dataset_id}/status`); }
+export async function datasetDetect(dataset_id) { return jsonFetch(`/datasets/${dataset_id}/detect`); }
+export async function cancelIngest(dataset_id) { return jsonFetch(`/datasets/${dataset_id}/cancel`, { method:'POST' }); }
+export async function renameDataset(dataset_id, name) { return jsonFetch(`/datasets/${dataset_id}/rename?name=${encodeURIComponent(name)}`, { method:'POST' }); }
+export async function hardDeleteDataset(dataset_id) { return jsonFetch(`/datasets/${dataset_id}/hard-delete`, { method:'DELETE' }); }
+export function originalDownloadUrl(dataset_id) { return API_BASE + `/datasets/${dataset_id}/original`; }
